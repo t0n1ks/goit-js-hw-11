@@ -57,6 +57,7 @@
   }
   
   .photo-card .info {
+    text-decoration: none;
     display: flex;
     justify-content: space-between;
     font-size: 14px;
@@ -64,6 +65,7 @@
   
   .photo-card .info-item {
     margin-right: 10px;
+    text-decoration: none;
   }
   
   .load-more {
