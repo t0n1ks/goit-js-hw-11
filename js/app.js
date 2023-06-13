@@ -9,13 +9,14 @@ const loadMoreBtn = document.querySelector(".load-more");
 
 let page = 1;
 let searchQuery = "";
+let endOfResults = false;
 
 const lightbox = new SimpleLightbox(".gallery a");
 
 form.addEventListener("submit", handleFormSubmit);
 window.addEventListener("scroll", throttle(handleScroll, 500));
 
-function handleFormSubmit(event) {
+async function handleFormSubmit(event) {
   event.preventDefault();
   searchQuery = form.elements.searchQuery.value.trim();
 
@@ -25,39 +26,48 @@ function handleFormSubmit(event) {
 
   clearGallery();
   page = 1;
-  searchImages();
+  endOfResults = false;
+  await searchImages();
 }
 
 function handleScroll() {
   const scrollPosition = window.innerHeight + window.scrollY;
   const pageHeight = document.documentElement.scrollHeight;
 
-  if (scrollPosition >= pageHeight) {
+  if (scrollPosition >= pageHeight && !endOfResults) {
     loadMoreImages();
   }
 }
 
-function searchImages() {
-  axios
-    .get(`https://pixabay.com/api/?key=37237642-602f5018f6edc6d1a99517278&q=${searchQuery}&image_type=photo&orientation=horizontal&safesearch=true&page=${page}&per_page=40`)
-    .then((response) => {
-      const images = response.data.hits;
-      const totalHits = response.data.totalHits;
+async function searchImages() {
+  try {
+    const response = await axios.get(
+      `https://pixabay.com/api/?key=37237642-602f5018f6edc6d1a99517278&q=${searchQuery}&image_type=photo&orientation=horizontal&safesearch=true&page=${page}&per_page=40`
+    );
+    const images = response.data.hits;
+    const totalHits = response.data.totalHits;
 
-      if (images.length === 0) {
-        Notiflix.Notify.failure("Sorry, there are no images matching your search query. Please try again.");
-        return;
-      }
+    if (page !== 1 && images.length === 0) {
+      Notiflix.Notify.info("You've reached the end of the results.");
+      endOfResults = true;
+      return;
+    }
 
-      Notiflix.Notify.success(`Hooray! We found ${totalHits} images.`);
+    if (images.length === 0) {
+      Notiflix.Notify.failure(
+        "Sorry, there are no images matching your search query. Please try again."
+      );
+      return;
+    }
 
-      appendImages(images);
-      lightbox.refresh();
-      scrollToNextGroup();
-    })
-    .catch((error) => {
-      console.log(error);
-    });
+    Notiflix.Notify.success(`Hooray! We found ${totalHits} images.`);
+
+    appendImages(images);
+    lightbox.refresh();
+    scrollToNextGroup();
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 function appendImages(images) {
@@ -106,9 +116,13 @@ function clearGallery() {
   gallery.innerHTML = "";
 }
 
-function loadMoreImages() {
+async function loadMoreImages() {
+  if (endOfResults) {
+    return;
+  }
+
   page += 1;
-  searchImages();
+  await searchImages();
 }
 
 function scrollToNextGroup() {
@@ -123,23 +137,22 @@ function scrollToNextGroup() {
 }
 
 function throttle(func, delay) {
-    let timeoutId;
-    let lastExecutedTime = 0;
-  
-    return function (...args) {
-      const currentTime = Date.now();
-  
-      if (currentTime - lastExecutedTime > delay) {
-        clearTimeout(timeoutId);
+  let timeoutId;
+  let lastExecutedTime = 0;
+
+  return function (...args) {
+    const currentTime = Date.now();
+
+    if (currentTime - lastExecutedTime > delay) {
+      clearTimeout(timeoutId);
+      lastExecutedTime = currentTime;
+      func.apply(this, args);
+    } else {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
         lastExecutedTime = currentTime;
         func.apply(this, args);
-      } else {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          lastExecutedTime = currentTime;
-          func.apply(this, args);
-        }, delay);
-      }
-    };
-  }
-  
+      }, delay);
+    }
+  };
+}
